@@ -1,0 +1,4 @@
+Homo-sapiens	rgs5-human
+Caenorhabditis-elegans	rgs5-worm
+Drosophila-melanogaster	rgs5-fly
+

@@ -1,0 +1,30 @@
+#! /bin/bash
+
+### USER INPUT ###
+#refseq="../userinput/superfamily-TRPs-Himmel2020-Kozma2018-human-fly-worm-PLUS-anemoneTRPVL-mouseTRPC2-uniprotIDs.fasta ../userinput/worm-trpl-proteins-05jun2021.fasta ../userinput/worm-spe-41.fasta"
+#poreseq="../userinput/67-TOTAL-species-3-reference-sequeces-geneious-extracted-pore-domains-ee07mar2021.fasta ../userinput/worm-trpl-proteins-05jun2021-pore_regions.fasta ../userinput/worm-spe-41-pore.fasta"
+
+
+refseq="../userinput/rgs73-full_length-12oct2021.fasta"
+poreseq="../userinput/rgs73-pore_region-12oct2021.fasta"
+
+
+### No Need To Modify ###
+
+### Clean up reference fastas
+cat $refseq > refseq-full.fasta
+grep '>' refseq-full.fasta | sort > 1-refseq-full-headers.txt
+#sed -i -e 's/rgs73-//g' refseq-full.fasta
+
+cat $poreseq > refseq-pore-raw.fasta
+#sed -i -e 's/rgs73-//g' refseq-pore-raw.fasta
+sed -i -e 's/-extraction.*//g' refseq-pore-raw.fasta
+
+### quick test: ideally no output from diff below!
+grep '>' refseq-pore-raw.fasta | sort > 1-refseq-pore-headers.txt
+diff 1-refseq-full-headers.txt 1-refseq-pore-headers.txt 
+
+echo "success! You've cleaned up the reference sequence headers."
+# grep '>' refseq-full.fasta
+# grep '>' refseq-pore-raw.fasta
+

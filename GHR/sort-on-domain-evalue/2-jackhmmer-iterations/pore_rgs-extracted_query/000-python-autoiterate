@@ -1,0 +1,337 @@
+#! python
+import os
+import sys
+
+### User Input Start###
+j_blosum="BLOSUM45"
+j_evalue="0.001"
+j_rounds="2"
+
+### User Input Stop###
+j_cpu = "10"
+if len(sys.argv) > 1:
+    if sys.argv[1] == '--cpu':
+        j_cpu=sys.argv[2]
+
+### No Need to Modify ###
+
+constraints = {}
+constraintsfile = open('../userinput/constraints.txt','r')
+for nextline in constraintsfile:
+    info = nextline[:-1].split('\t')
+    family = info[0]
+    outgrouplist = info[1].split(',')
+    constraints[family] = outgrouplist
+constraintsfile.close()
+
+active_iter = True
+itercount = 0
+
+while(active_iter):
+    this_iteration = str(itercount)
+    previous_iteration = str(itercount-1)
+
+    os.system("mkdir jackhmmer-iteration-"+this_iteration)
+    os.chdir("jackhmmer-iteration-"+this_iteration)
+
+    newcount = 0
+    updatecount = 0
+    passedcount = 0
+
+    sequencedict = {}
+    inputfasta = open("../../1-process-fastas/local-projectdb.aa",'r')
+    for nextline in inputfasta:
+        if nextline[0] == '>':
+            header = nextline[1:-1]
+            sequencedict[header] = ""
+        else:
+            sequencedict[header] += nextline[:-1]
+    inputfasta.close()
+
+    ###run jackhmmer
+    for family in constraints:
+    
+        print("running jackhmmer on "+family+"...")
+        j_out = family+"iteration-"+this_iteration+"-jackhmmer.out"
+        if this_iteration == "0":
+            j_query = "../../1-process-fastas/refseq-pore.fasta"
+        else:
+            j_query = "../jackhmmer-iteration-"+previous_iteration+"/"+family+"iteration-"+previous_iteration+"-search.fasta"
+        j_db = "../../1-process-fastas/local-projectdb.aa"
+        os.system("jackhmmer -N "+j_rounds+" -E "+j_evalue+" --domE "+j_evalue+" --cpu "+j_cpu+" --noali --notextw --qformat fasta --mx "+j_blosum+" -o "+j_out+" "+j_query+" "+j_db+" &&\n echo \"\"")
+   
+
+ 
+    ###sort jackhmmer output
+    for family in constraints:
+                
+        inputfile = open(family+"iteration-"+this_iteration+"-jackhmmer.out",'r')
+        print("sorting "+family+"iteration-"+this_iteration+"-jackhmmer.out......")
+        
+        outputfile = open(family+"iteration-"+this_iteration+"-jackhmmer.sorted",'w')
+        
+        to_sort = []
+        done_sorting = []
+        parseEvalue = False
+        parseCoords = False
+        text = ""
+        for nextline in inputfile:
+            if 'Query:' in nextline:
+                info = nextline[13:].split('  [L=')
+                queryheader = info[0]
+                info = queryheader.split('_')
+                if this_iteration == "0":
+                    query = '_'.join(info[:-3])
+                else:
+                    query = '_'.join(info[:-4])
+                 
+                if text != "":
+                    outputfile.write(text)
+                
+                text = nextline
+            elif (nextline == '\n') or ("---" in nextline) or ("@@" in nextline) or ('?' in nextline) or ('#' in nextline) or ("No " in nextline):
+                continue
+            elif 'E-value  score  bias' in nextline:
+                parseEvalue = True
+                text += nextline
+                to_sort = []   
+                done_sorting = []
+            elif 'Domain annotation' in nextline:
+                parseEvalue = False
+                done_sorting = sorted(to_sort, key = lambda x: x[0], reverse=True)
+                for score,line in done_sorting:
+                    text += line 
+                text += nextline
+            elif parseEvalue == True:
+                info = nextline[1:-1].split(' ')
+                while "" in info:
+                    info.remove("")
+                sequence = info[-1]
+                #change to info[1] to sort on full sequence bitscore
+                #change to info[4] to sort on domain bitscore
+                score = float(info[4])
+                to_sort.append((score, nextline))
+            else:
+                text += nextline
+        
+        inputfile.close()
+    
+        outputfile.write(text)
+        outputfile.close()
+
+
+    ###parse sorted jackhmmer output
+    for family in constraints:
+
+        query_info = {} #query_info[header] = (sequence_coords/"" ,query_tail, query_evalue, pass/nopass)
+        if this_iteration != "0":
+            record = open("../jackhmmer-iteration-"+previous_iteration+"/"+family+"iteration-"+previous_iteration+'-record.txt', 'r')
+            for nextline in record:
+                info = nextline[1:-1].split('\t')[0].split('_')
+                query = '_'.join(info[:-4])
+                query_tail = '_'+'_'.join(info[-4:-1])
+                query_evalue = float(info[-1])
+                query_bool = nextline[1:-1].split('\t')[-1]
+                if query_bool == 'True':
+                    query_info[query] = ("", query_tail, query_evalue,True)
+                else:
+                    query_info[query] = ("", query_tail, query_evalue,False)
+            record.close()
+        
+        inputfile = open(family+"iteration-"+this_iteration+"-jackhmmer.sorted",'r')
+        print("processing "+family+"iteration-"+this_iteration+"-jackhmmer.sorted......")
+
+        output_info = open(family+"iteration-"+this_iteration+'.info','w')
+        
+        sequence_info = {}
+        parseEvalue = False
+        parseCoords = False
+        iteration_over = False
+        found_outgroup = False
+        found_ingroup = False
+        after_ingroup = []
+        for nextline in inputfile:
+            if 'Query:' in nextline:
+                best_evalue_coords = {}
+                sequence_coords = {}
+                info = nextline[13:].split('  [L=')
+                queryheader = info[0]
+                info = queryheader.split('_')
+                if this_iteration == "0":
+                    query = '_'.join(info[:-3])
+                    query_tail = '_'+'_'.join(info[-3:])
+                    query_evalue = 0.0
+                else:
+                    query = '_'.join(info[:-4])
+                    query_tail = '_'+'_'.join(info[-4:-1])
+                    query_evalue = float(info[-1])
+                iteration_over = False
+                outgrouplist = constraints[family]
+                this_round = 0
+                query_info[query] = ("", query_tail, query_evalue,False)
+            elif (nextline == '\n') or ("---" in nextline) or ("@@" in nextline) or ('?' in nextline) or ('#' in nextline) or ("No " in nextline):
+                continue
+            elif iteration_over == False:     
+                if 'E-value' in nextline:
+                    parseEvalue = True
+                    found_ingroup = False
+                    found_outgroup = False
+                    after_ingroup = []
+                    outgroup_before_ingroup = ""
+                    this_round += 1
+                elif 'Domain annotation' in nextline:
+                    parseEvalue = False
+                    parseCoords = True
+                elif 'Internal' in nextline:
+                    parseCoords = False
+                    if found_ingroup:
+                        if found_outgroup:
+                            if outgroup_before_ingroup != "":
+                                iteration_over = True
+                                output_info.write("ROUND "+str(this_round)+": "+query+" returned an outgroup \'"+outgroup_before_ingroup+"\' before its ingroup \'"+family+"\'.\n")
+                                pass
+                            else:
+                                output_info.write("ROUND "+str(this_round)+": "+query+" found its ingroup before its outgroup. "+str(len(sequence_coords))+" hits accumulated.\n")
+                                if len(after_ingroup) > 0:
+                                    for seq in after_ingroup:
+                                        del sequence_coords[seq]
+                                query_info[query] = (sequence_coords,query_tail,query_evalue,True)
+                        else:
+                            output_info.write("ROUND "+str(this_round)+": "+query+" found its ingroup and no outgroup! "+str(len(sequence_coords))+" hits accumulated.\n")
+                            if len(after_ingroup) > 0:
+                                for seq in after_ingroup:
+                                    if seq in sequence_coords:
+                                        del sequence_coords[seq]
+                            query_info[query] = (sequence_coords,query_tail,query_evalue,True)
+                    else:
+                        iteration_over = True
+                        output_info.write("ROUND "+str(this_round)+": "+query+" did not find its ingroup "+family[:-1]+".\n")
+                        pass
+                elif parseEvalue == True:
+                    info = nextline[1:-1].split(' ')
+                    while "" in info:
+                        info.remove("")
+                    sequence = info[-1]
+                    if family in sequence:
+                        found_ingroup = True
+                        after_ingroup = []
+                    else:
+                        for outgroup in outgrouplist:
+                            if outgroup in sequence:
+                                found_outgroup = True
+                                if not found_ingroup:
+                                    outgroup_before_ingroup = outgroup
+                                break
+                        if (not found_outgroup) and (found_ingroup) and (sequence not in sequence_coords):
+                            after_ingroup.append(sequence)
+                    if (not found_outgroup) and (sequence != query): #ignore self-hits 
+                        sequence_coords[sequence] = ""
+                        evalue = float(info[0])
+                        if sequence in sequence_info:
+                            old_evalue = sequence_info[sequence][0]
+                            if evalue < old_evalue:
+                                sequence_info[sequence] = (evalue,query)
+                        else:
+                            sequence_info[sequence] = (evalue,query)
+                elif parseCoords == True: 
+                    if nextline[0] == '>':
+                        sequence = nextline[3:-3]
+                    elif (sequence in sequence_coords): ###and (sequence_coords[sequence]==""):
+                        info = nextline.split(' ')
+                        while "" in info:
+                            info.remove("")
+                        hmmfrom, hmmto = int(info[6]), int(info[7])
+                        alifrom, alito = int(info[9]), int(info[10])
+                        ievalue = float(info[5])
+                        if sequence in best_evalue_coords:
+                            old_ievalue, old_alifrom, old_alito = best_evalue_coords[sequence]
+                            if ievalue < old_ievalue: #new ievalue improved
+                                best_evalue_coords[sequence] = (ievalue, alifrom, alito)
+                                sequence_coords[sequence] = (ievalue, alifrom, alito)
+                                output_info.write(sequence + ' ' + str(this_round) + " improved " + str(ievalue) + ' ' + str(alifrom) + ' ' + str(alito) + '\n')
+                            else:
+                                output_info.write(sequence + ' ' + str(this_round) +  " ignore " + str(ievalue) + ' ' + str(alifrom) + ' ' +  str(alito) + '\n')
+                                sequence_coords[sequence] = (old_ievalue, old_alifrom, old_alito)
+                        else:
+                            best_evalue_coords[sequence] = (ievalue, alifrom, alito)
+                            sequence_coords[sequence] = (ievalue, alifrom, alito)
+                            output_info.write(sequence + ' ' + str(this_round) + " initial " + str(ievalue) + ' ' +  str(alifrom) + ' ' +  str(alito) + '\n')
+        inputfile.close()
+        output_info.close()   
+ 
+
+
+
+        output_new = open(family+"iteration-"+this_iteration+'.new','w')
+        output_low = open(family+"iteration-"+this_iteration+'.low','w')
+        output_updates = open(family+"iteration-"+this_iteration+'.updates','w')
+        output_search = open(family+"iteration-"+this_iteration+'-search.fasta','w')
+        print('generating '+family+"iteration-"+this_iteration+'-search.fasta')
+        for query in query_info:
+            sequence_coords= query_info[query][0]
+            for sequence in sequence_coords:
+                if (sequence_info[sequence][1] == query) and (sequence != query):
+                    if sequence_coords[sequence] == "":
+                        output_low.write("HMM domain annotation under threshold, skipped:" + query + "'s   " + sequence + '\n')
+                        continue
+                    else:
+                        ievalue,start,end = sequence_coords[sequence]
+                        tail = '_extraction_'+str(start)+'_'+str(end)
+                        evalue_tail = '_'+str(ievalue)
+                        if sequence not in query_info:
+                            newcount += 1
+                            output_search.write('>'+sequence+tail+evalue_tail+'\n')
+                            output_search.write(sequencedict[sequence][start-1:end]+'\n')
+                            output_new.write("Query:"+query+" Hit:"+sequence+tail+evalue_tail+'\n')
+                        else:
+                            ignore_this, previous_tail, previous_evalue, previous_state = query_info[sequence]
+                            previous_start = previous_tail.split('_')[-2]
+                            previous_end = previous_tail.split('_')[-1]
+                            if (ievalue < previous_evalue):
+                                if ((str(start) != previous_start) or (str(end) != previous_end)):
+                                    if (previous_state == False):
+                                        output_updates.write('-'.join(query.split('-')[-3:]) + " found "+'-'.join(sequence.split('-')[-3:]) + '\n')
+                                        output_updates.write("\t Improved from evalue: " + str(previous_evalue) + " (" +  previous_start+ "," +previous_end + ") and keep status: " + str(previous_state) + '\n')
+                                        output_updates.write("\t            to evalue: "+  str(ievalue)+  " ("+ str(start)+ ","+ str(end)+ ")\n")
+                                        output_updates.write("")
+                                        updatecount += 1
+                                        output_search.write('>'+sequence+tail+evalue_tail+'\n')
+                                        output_search.write(sequencedict[sequence][start-1:end]+'\n')
+                                    else: #sequence previously passed the filter, ignore new coords/evalue
+                                        pass
+                                else: #regardless or filter passing/no pass, start and end didn't change, only evalue did
+                                    query_info[sequence] = ignore_this, previous_tail, evalue, previous_state
+        output_low.close()
+        output_new.close()
+        output_updates.close()
+        output_search.close()
+
+
+        output_record = open(family+"iteration-"+this_iteration+'-record.txt','w')
+        print('generating '+family+"iteration-"+this_iteration+'-record.txt')
+        for query in query_info:
+            sequence_coords, query_tail, query_evalue, query_passed = query_info[query]
+            query_evalue_tail = '_' + str(query_evalue)
+            output_record.write('>'+query+query_tail+query_evalue_tail+'\t'+str(query_passed)+'\n')
+            if query_passed:
+                passedcount += 1
+        output_record.close()
+        print("")
+    
+
+
+
+    print("NEW: "+str(newcount))
+    print("UPDATED: "+str(updatecount))
+    print("TOTAL PASSED: "+str(passedcount))
+
+    os.chdir("..")
+    
+    if (newcount == 0) and (updatecount == 0):
+        print("AUTO-ITERATING-OVER.")
+        print("Stopped at iteration "+this_iteration+" Refer to jackhmmer-iteration-"+this_iteration+" for final output! :)")
+        active_iter = False
+    else:
+        itercount += 1
+
+

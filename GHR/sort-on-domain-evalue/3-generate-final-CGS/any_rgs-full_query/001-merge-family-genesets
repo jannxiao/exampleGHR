@@ -1,0 +1,25 @@
+#! /bin/bash
+
+### User Input ###
+finaliter=""
+
+### No Need To Modify ###
+pdbdir="../1-process-fastas/"
+iterdir="../2-jackhmmer-iterations/jackhmmer-iteration-$finaliter/"
+
+value="$(<../userinput/constraints.txt)"
+tmp=${value//$'\n'/$'\2'}
+tmp=${tmp//$'\t'/$'\3'}
+IFS=$'\2' read -a arr <<< "$tmp"
+for nextline in "${arr[@]}" ; do
+    IFS=$'\3' read -a subarr <<< "$nextline"
+    family="${subarr[0]}"
+    python ../scripts/keep-sequences.py $iterdir$family"iteration-$finaliter-record.txt" $pdbdir"local-projectdb.aa" $family"geneset-full.fasta" convertmode_full $family &&
+    echo "Created "$family"geneset-full.fasta!"
+    
+
+done
+
+echo "success!"
+
+

@@ -1,0 +1,26 @@
+#! /bin/bash
+
+#path="/scratch2/eedsinger/projects/sono/phylogenomics/mechanosensors/trps-paper/metazoaALL/3-giganticOMG/GHR-pipeline/projectdb-subsets/subset-$1/"
+path="/scratch2/eedsinger/projects/sono/phylogenomics/mechanosensors/trps-paper/metazoa26/2-projectDB/projectdb-fastas/*.aa"
+num=($(ls -1 $path | wc -l))
+
+mkdir $num-projectdb-fastas
+cp -r $path $num-projectdb-fastas
+
+array=($(ls $num-projectdb-fastas/))
+for filename in "${array[@]}" ; do
+    tmp=${filename//"."/$'\6'}
+    tmp=${tmp//"-"/$'\6'}
+    IFS=$'\6' read -a arr <<< "$tmp"
+    newfilename="${arr[0]}"
+    for i in {1..7..1} ; do
+      newfilename+="-${arr[$i]}"
+    done
+    mv $num-projectdb-fastas/$filename $num-projectdb-fastas/$newfilename.aa
+done
+
+sed -i -e 's/*/X/g' $num-projectdb-fastas/*
+
+ls -1 $num-projectdb-fastas | grep -E "Homo|Mus|melano|elegan|vectensis"
+
+

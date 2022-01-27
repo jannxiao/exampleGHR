@@ -1,0 +1,117 @@
+#! python
+import os
+
+### No Need to Modify ###
+print("")
+
+constraints = {}
+constraintsfile = open('../userinput/constraints.txt','r')
+for nextline in constraintsfile:
+    info = nextline[:-1].split('\t')
+    family = info[0]
+    outgrouplist = info[1].split(',')
+    constraints[family] = outgrouplist
+constraintsfile.close()
+
+active_iter = True
+itercount = 0
+
+while(active_iter):
+    this_iteration = str(itercount)
+    previous_iteration = str(itercount-1)
+
+    try:
+        os.chdir("jackhmmer-iteration-"+this_iteration)
+    except:
+        print("no such directory yet: ", "jackhmmer-iteration-"+this_iteration)
+        quit()
+    
+    print("jackhmmer-iteration-"+this_iteration+":")
+
+    newcount = 0
+    updatecount = 0
+    passedcount = 0
+
+
+    for family in constraints:
+        #TRPiteration-1-record.txt  TRPiteration-1-search.fasta 
+        #>worm-TRPA_Cele-TRPA-2_1-481-uniprotQ21517-Kozma2018_extraction_51_366_0.0  True
+        #>Metazoa-Nematoda-Chromadorea-Rhabditida-Strongyloididae-Strongyloides-ratti-pdb0000743937nr_extraction_90_352_1.4e-98
+        
+        try:
+            inputfile = open(family+"iteration-"+this_iteration+"-record.txt",'r')
+            headers= []
+            for nextline in inputfile:
+                if nextline[0] == '>':
+                    state = nextline[1:-1].split('\t')[-1]
+                    if state == 'True':
+                        passedcount +=1
+                    header = '_'.join(nextline[1:-1].split('_')[:-4])
+                    headers.append(header)
+            headersNR = set(headers)
+            inputfile.close()
+
+            try:
+                inputfile = open(family+"iteration-"+this_iteration+"-search.fasta",'r')
+                fasta=[]
+                for nextline in inputfile:
+                    if nextline[0] == '>':
+                        header = '_'.join(nextline[1:-1].split('_')[:-4])
+                        fasta.append(header)
+                inputfile.close()
+
+                for header in fasta:
+                    if header in headersNR:
+                        updatecount += 1
+                    else:
+                        newcount +=1
+
+                print("NEW: "+str(newcount))
+                print("UPDATED: "+str(updatecount))
+                print("TOTAL PASSED: "+str(passedcount))
+                print("")
+                os.chdir("..")
+
+                if (newcount == 0) and (updatecount == 0):
+                    print("AUTO-ITERATING-OVER.")
+                    print("Stopped at iteration "+this_iteration+" Refer to jackhmmer-iteration-"+this_iteration+" for final output! :)")
+                    active_iter = False
+                else:
+                    itercount += 1
+
+            except:
+                #print("jackhmmer-iteration-"+this_iteration+"-search.fasta","not found!")
+                print("...processing...\n")
+                quit()
+
+
+        except:
+            searchcount = 0
+
+            inputfile = open(family+"iteration-"+this_iteration+"-jackhmmer.out",'r')
+            for nextline in inputfile:
+                if "Query:" in nextline:
+                    searchcount  += 1
+            inputfile.close()
+
+            todocount = 0
+
+            if this_iteration == '0':
+                infile = "../../1-process-fastas/refseq-full.fasta"
+            else:
+                last_iteration = str(itercount-1)
+                infile = "../jackhmmer-iteration-"+last_iteration+'/'+family+"iteration-"+last_iteration+"-search.fasta"
+            
+            inputfile = open(infile,'r')
+            for nextline in inputfile:
+                if nextline[0] == '>' :
+                    todocount  += 1
+            inputfile.close()
+
+            #print("jackhmmer-iteration-"+this_iteration+"-record.txt","not found!")
+            print("...searching "+str(searchcount)+'/'+str(todocount)+'...\n')
+            quit()
+
+
+    
+

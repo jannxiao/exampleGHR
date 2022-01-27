@@ -1,0 +1,3 @@
+Homo-sapiens	rgs4-human
+Drosophila-melanogaster	rgs4-fly
+

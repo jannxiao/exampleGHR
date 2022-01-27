@@ -1,0 +1,17 @@
+#! /bin/bash
+
+### USER INPUT ###
+#refseq="../userinput/superfamily-TRPs-Himmel2020-Kozma2018-human-fly-worm-PLUS-anemoneTRPVL-mouseTRPC2-uniprotIDs.fasta ../userinput/worm-trpl-proteins-05jun2021.fasta ../userinput/worm-spe-41.fasta"
+#poreseq="../userinput/67-TOTAL-species-3-reference-sequeces-geneious-extracted-pore-domains-ee07mar2021.fasta ../userinput/worm-trpl-proteins-05jun2021-pore_regions.fasta ../userinput/worm-spe-41-pore.fasta"
+
+refseq="../userinput/"
+
+
+### No Need To Modify ###
+
+### Clean up reference fastas
+cat $refseq > refseq-full.fasta
+grep '>' refseq-full.fasta | sort > 1-refseq-full-headers.txt
+
+echo "success! You've cleaned up the reference sequence headers."
+

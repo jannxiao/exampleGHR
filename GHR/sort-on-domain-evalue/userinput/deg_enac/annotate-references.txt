@@ -1,0 +1,4 @@
+Homo-sapiens	rgs86-human
+Caenorhabditis-elegans	rgs86-worm
+Drosophila-melanogaster	rgs86-fly
+

@@ -1,0 +1,5 @@
+Homo-sapiens	rgs73-human
+Caenorhabditis-elegans	rgs73-worm
+Drosophila-melanogaster	rgs73-fly
+Nematostella-vectensis	rgs73-anemone
+

@@ -1,0 +1,41 @@
+#! python
+
+### No Need to Modify ###
+import os
+
+### Generate pore fastas with _extraction_start_end in their headers
+fulldict = {}
+inputfull = open("refseq-full.fasta","r")
+for nextline in inputfull:
+    if nextline[0]=='>':
+        header = nextline[:-1]
+        fulldict[header] = ""
+    else:
+        fulldict[header] += nextline[:-1]
+inputfull.close()
+
+poredict = {}
+inputpore = open("refseq-pore-raw.fasta","r")
+for nextline in inputpore:
+    if nextline[0]=='>':
+        header = nextline[:-1]
+        poredict[header] = ""
+    else:
+        poredict[header] += nextline[:-1]
+inputpore.close()
+
+outputpore = open("refseq-pore.fasta","w")
+for header in fulldict:
+    fullseq = fulldict[header]
+    poreseq = poredict[header]
+    firstcoord = fullseq.find(poreseq)
+    newheader = header+"_extraction_"+str(firstcoord+1)+"_"+str(len(poreseq)+firstcoord)
+    print("Updated "+header[1:])
+    print(" -- to "+newheader[1:])
+    print("")
+    ###print(newheader, len(fullseq))
+    outputpore.write(newheader+'\n')
+    outputpore.write(poreseq+'\n')
+outputpore.close()
+    
+print("success!")

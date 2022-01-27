@@ -1,0 +1,15 @@
+#! /bin/bash
+
+keyword="rgs-"
+
+fullfile=$keyword"geneset-full"
+extractedfile=$keyword"geneset-extracted"
+
+
+refseq="../1-process-fastas/refseq-full.fasta"
+poreseq="../1-process-fastas/refseq-pore.fasta"
+
+cat $fullfile.fasta $refseq > $fullfile-AGS.fasta
+cat $extractedfile.fasta $poreseq > $extractedfile-AGS.fasta
+
+

@@ -1,0 +1,57 @@
+#! /bin/bash
+
+### USER INPUT ###
+fastadir="26-projectdb-fastas"
+dmnddir="26-projectdb-dmnds"
+blosum="BLOSUM62"
+
+mkdir 3-output-dir
+mkdir ../projectdb/$dmnddir
+
+### Generate diamond BLAST databases for each genome fasta
+fastalist="$(ls -1 ../projectdb/$fastadir/*)"
+for fastapath in $fastalist ; do
+   tmp=${fastapath//\//$'\2'}
+   IFS=$'\2' read -a arr <<< "$tmp"
+   filename="${arr[3]//'.aa'}"
+   tmp=${filename//-/$'\2'}
+   IFS=$'\2' read -a arr <<< "$tmp"
+   genus="${arr[6]}"
+   species="${arr[7]}"
+   dmndpath="../projectdb/$dmnddir/$filename-AA.dmnd"
+   diamond makedb --in $fastapath -d $dmndpath
+done
+
+### run diamondBLAST of the reference sequences against the genomes to annotate
+### save annotated genomes to local-projectdb.aa
+value="$(<../userinput/annotate-references.txt)"
+value=${value//$'\n'/$'\2'}
+value=${value//$'\t'/$'\3'}
+IFS=$'\2' read -a arr <<< "$value"
+firstline=true
+gsppstr=""
+for nextline in "${arr[@]}" ; do
+    IFS=$'\3' read -a subarr <<< "$nextline"
+    gspp="${subarr[0]}"
+    name="${subarr[1]}"
+    diamond blastp -d ../projectdb/$dmnddir/*"$gspp"*-AA.dmnd -q refseq-full.fasta -o 3-output-dir/3-diamond-report-TRPs_X_"$name"-genome --more-sensitive --matrix $blosum --outfmt 6 qseqid sseqid evalue bitscore -e 1e-3 -c1 #&&
+    python ../scripts/eric-python-update-reference-genomes.py 3-output-dir/3-diamond-report-TRPs_X_"$name"-genome ../projectdb/$fastadir/*"$gspp"*.aa refseq-full.fasta 3-output-dir/3-"$name"-map-source-to-ref-header 3-output-dir/3-annotated-"$name"-genome.aa $name &&
+    if [ "$firstline" = true ] ; then   
+        gsppstr="*$gspp*"
+        cat 3-output-dir/3-annotated-"$name"-genome.aa > local-projectdb.aa
+        firstline=false
+    else
+        gsppstr="$gsppstr|*$gspp*"
+        cat 3-output-dir/3-annotated-"$name"-genome.aa >> local-projectdb.aa
+    fi
+done
+
+### combine unannotated genomes (non-reference genomes) with local-projectdb.aa
+shopt -s extglob
+cat ../projectdb/$fastadir/!($gsppstr) >> local-projectdb.aa
+shopt -u extglob
+
+echo "success!"
+echo "You combined all species genomes into one file: local-projectdb.aa"
+
+cat 3-output-dir/*source-to-ref-header > all-uniprot-to-projectdb-RGS-map.txt

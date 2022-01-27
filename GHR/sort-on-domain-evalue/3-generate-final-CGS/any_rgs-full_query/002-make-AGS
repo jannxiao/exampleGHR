@@ -1,0 +1,12 @@
+#! /bin/bash
+
+keyword="rgs-"
+
+fullfile=$keyword"geneset-full"
+
+
+refseq="../1-process-fastas/refseq-full.fasta"
+
+cat $fullfile.fasta $refseq > $fullfile-AGS.fasta
+
+

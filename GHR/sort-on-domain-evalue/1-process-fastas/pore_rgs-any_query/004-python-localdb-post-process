@@ -1,0 +1,77 @@
+#! python
+
+### No Need to Modify ###
+import sys
+
+filterLength = 0
+try:
+    if(sys.argv[1] == '-filter'):
+        filterLength = int(sys.argv[2])
+        print("-----------------------------------------------------------------------------")
+        print("004-python-localdb-post-process was run with a filter length of "+str(filterLength))
+        print("Sequences shorter than "+ str(filterLength)+ "AA were filtered out from local-projectdb.aa")
+        print("-----------------------------------------------------------------------------")
+except:
+    print("-----------------------------------------------------------------------------")
+    print("004-python-localdb-post-process was not run with a filter!")
+    print("To filter out sequences under a certain length in local-projectdb.aa, please run:")
+    print("")
+    print("\t python 004-python-localdb-post-process -filter 0")
+    print("")
+    print("")
+    print("Replace 0 with the desired length under or equal to which should be filtered out.")
+    print("-----------------------------------------------------------------------------")
+
+
+refseq = {}
+reffasta = open('refseq-full.fasta','r')
+for nextline in reffasta:
+   if nextline[0] == '>':
+        header = nextline[1:-1]
+        refseq[header] = ""
+   else:
+        refseq[header] += nextline[:-1]
+reffasta.close()
+
+localdbDict = {}
+localdb = open('local-projectdb.aa','r')
+for nextline in localdb:
+    if nextline[0] == '>':
+        header = nextline[1:-1]
+        localdbDict[header] = ""
+        if header in refseq:
+            del refseq[header]
+    else:
+        localdbDict[header] += nextline[:-1]
+localdb.close()
+
+if refseq:
+    print("There are missing reference sequences in your local projectDB!")
+    for header in refseq:
+        print("Appending "+header+"......")
+else:
+    print("All good! All reference sequences present in local projectDB.")
+
+print("")
+
+
+outdb = open('local-projectdb.aa','w')
+for header in localdbDict:
+    sequence = localdbDict[header]
+    seqlen = len(sequence)
+    if seqlen > filterLength: 
+        outdb.write('>'+header+'\n')
+        outdb.write(sequence+'\n')
+    # else:
+        # print(sequence + " of sequence length "+ str(seqlen) + "has been removed.")
+if refseq:
+    for header in refseq:
+        outdb.write('>'+header+'\n')
+        outdb.write(refseq[header]+'\n')
+outdb.close()
+
+print("success!")
+print("You made copies of local-projectdb.aa per query reference sequence family.")
+print("These copies have been filtered to remove sequences shorter than the")
+print("query reference sequence's region of interest")
+
