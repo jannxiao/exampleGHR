@@ -1,0 +1,117 @@
+
+WELCOME (~1min):
+
+  This README will guide you in using giganticHMMer (GHR) to produce a candidate gene set, given 1) a user-provided projectdb fasta database and 2) a user-provided reference gene set fasta file.
+
+  First, you should have these folders in the GHR directory that this README file sits in.
+  |
+  |_ projectdb/
+  |   |_000-prep
+  |
+  |_ scripts/
+  |   |_eric-python-update-reference-genomes.py
+  |   |_keep-sequences.py
+  |   |_reset.sh
+  |
+  |_ userinput/
+  |   |_annotate-references.txt
+  |   |_constraints.txt
+  |
+  |_ 1-process-fastas/
+  |   |_001-process-refs
+  |   |_002-annotate-refs
+  |   |_003-python-localdb-post-process
+  |
+  |_ 2-jackhmmer-iterations/
+  |   |_000-python-autoiterate
+  |   |_001-python-autoiterate-stats
+  |
+  |_ 3-generate-final-CGS/
+  |   |_001-merge-family-genesets
+  |   |_002-python-make-superfamily-fastas
+  |   |_003-make-AGS
+  |
+  ---------------------------------------------
+
+
+
+
+
+
+QUICK START (~20min):
+
+
+  We'll stairt by loading projectdb fastas into the projectdb directory.
+    --> cd into projectdb/ and you'll see a script 000-prep
+
+      000-prep will have a section for you to modify.
+      fastas_directory_source should be the path to the curated projectdb fastas directory.
+      fastas_directory should be the new name of the projectdb fastas directory.
+      -->Typically in the format (number of species)-projectdb-fastas 
+    
+      Please edit the path variables to look like the below example:
+        |
+        |### User input ###
+        |
+        |fastas_directory="64-projectdb-fastas/"
+        |fastas_directory_source="/scratch2/eedsinger/projects/sono/phylogenomics/mechanosensors/giganticOMG/animals/projectdb/metazoa64_initial/projectdb-fastas/"
+  
+
+
+  Make sure your definition files in userinput/ are accurate:
+    -->annotate-references.txt should be a list of species in projectdb that are present in the reference geneset.
+        This file allows for these species' reference genes annotated in their respective projectdb fasta file.
+        The species should be written out like so, tab-separated gspp to common name:
+          |Homo-sapiens  human
+          |Caenorhabditis-elegans  worm
+          |Drosophila-melanogaster fly
+          |Mus-musculus  mouse
+          |Nematostella-vectensis  anemone
+  
+    -->constraints.txt defines the ingroup outgroup relationships by keywords in the sequence headers:
+      #It's necessary to pick keywords from headers that are shared among your chosen ingroup/outgroups.
+      Ingroup and outgroups are tab-separated, while outgroups are comma-separated, like so:
+        |TRP Homo-sapiens,Drosophila-melanogaster,Caenorhabditis-elegans
+
+  #Don't forget to load your reference fastas (full length) into the userinput/ directory like so:
+    |_rgs73-full_length-22jul2021.fasta
+
+
+  In 1-process-fastas/
+    -->001-process-refs, the variable refseq needs to point to the reference fasta in userinput/ like so:
+      #This script modifies the reference fastas. Right now the modifications are hardcoded for TRP 73 rgs.
+        |refseq="../userinput/rgs73-full_length-22jul2021.fasta"
+    -->002-python-update-pore converts pore region headers into the necessary format. Requires full length and pore region headers to be the exact same.
+    -->003-annotate-refs combines all projectdb fastas into a fasta called local-projectdb.aa and annotates reference genes in the aforementioned local master projectdb fasta.
+      #Note that in the user input section you need to define the variable fastadir to the same name as what you called the projectdb fastas folder in projectdb/ like so:
+        |fastadir="64-projectdb-fastas"
+      #In this example dmnddir is set to "64-projectdb-dmnds", like so:
+        |dmnddir="64-projectdb-dmnds"
+    -->004-python-localdb-post-process filters out sequences under a given length by the argument -filter followed by the number of AA under which to filter out from local-projectdb.aa
+  
+  In 2-jackhmmer-iterations/
+    -->000-python-autoiterate auto iterates jackhmmer/GHR. Creates folders as it goes starting from jackhmmer-iteration-0 through completion.
+    -->001-python-autoiterate-stats prints out stats so far of a running or finished jackhmmer session
+  
+  In 3-generate-final-CGS/
+    -->001-merge-family-genesets: note the last iteration from 2-jackhmmer-iterations/ and enter the number in finaliter like so:
+      |finaliter="3"
+    -->002-python-make-superfamily-fastas: note the user input section. Define nrfullfasta and nrporefasta like so:
+      |nrfullfasta = 'superfamily-64-full-nr.fasta'
+    -->003-make-AGS: note the user input section. Define fullfile, reffile, refseq, and poreseq like so:
+      |fullfile="superfamily-64-full-nr"
+      |refseq="../userinput/rgs73-full_length-22jul2021.fasta"
+    
+
+
+
+
+MORE INFO (~unknown min):
+
+
+You can run the reset.sh script to reset the GHR folder to its initial state. It will delete all folders created and files generated by GHR.
+
+
+#TODO
+
+
